@@ -5,7 +5,8 @@ go 1.16
 require (
 	k8s.io/apimachinery v0.21.0
 	k8s.io/client-go v0.21.0
-	kmodules.xyz/resource-metadata v0.5.4
+	kmodules.xyz/client-go v0.0.0-20210512200950-b646b11ba7bf
+	kmodules.xyz/resource-metadata v0.5.5-0.20210512222321-4a093d97ed54
 )
 
 replace bitbucket.org/ww/goautoneg => gomodules.xyz/goautoneg v0.0.0-20120707110453-a547fc61f48d
