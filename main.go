@@ -43,8 +43,8 @@ type ObjectRef struct {
 	NameTemplate string                `json:"nameTemplate,omitempty"`
 }
 
-func Process(f dynamicfactory.Factory, r discovery.ResourceMapper, locator *ObjectLocator) (*unstructured.Unstructured, error) {
-	src, err := Locate(f, r, locator.Start)
+func Locate(f dynamicfactory.Factory, r discovery.ResourceMapper, locator *ObjectLocator) (*unstructured.Unstructured, error) {
+	src, err := Get(f, r, locator.Start)
 	if err != nil {
 		return nil, err
 	}
@@ -102,27 +102,10 @@ func Process(f dynamicfactory.Factory, r discovery.ResourceMapper, locator *Obje
 		return nil, err
 	}
 
-	switch len(objects) {
-	case 0:
-		last := edges[len(edges)-1]
-		return nil, apierrors.NewNotFound(last.Dst.GroupResource(), "")
-	case 1:
-		return objects[0], nil
-	default:
-		names := make([]string, 0, len(objects))
-		for _, obj := range objects {
-			name, err := cache.MetaNamespaceKeyFunc(obj)
-			if err != nil {
-				return nil, err
-			}
-			names = append(names, name)
-		}
-		last := edges[len(edges)-1]
-		return nil, fmt.Errorf("multiple matching %v objects found %s", last.Dst, strings.Join(names, ","))
-	}
+	return getTheObject(edges[len(edges)-1].Dst, objects)
 }
 
-func Locate(f dynamicfactory.Factory, r discovery.ResourceMapper, ref *ObjectRef) (*unstructured.Unstructured, error) {
+func Get(f dynamicfactory.Factory, r discovery.ResourceMapper, ref *ObjectRef) (*unstructured.Unstructured, error) {
 	gvk := schema.FromAPIVersionAndKind(ref.Target.APIVersion, ref.Target.Kind)
 	gvr, err := r.GVR(gvk)
 	if err != nil {
@@ -137,22 +120,7 @@ func Locate(f dynamicfactory.Factory, r discovery.ResourceMapper, ref *ObjectRef
 		if err != nil {
 			return nil, err
 		}
-		switch len(objects) {
-		case 0:
-			return nil, apierrors.NewNotFound(gvr.GroupResource(), "")
-		case 1:
-			return objects[0], nil
-		default:
-			names := make([]string, 0, len(objects))
-			for _, obj := range objects {
-				name, err := cache.MetaNamespaceKeyFunc(obj)
-				if err != nil {
-					return nil, err
-				}
-				names = append(names, name)
-			}
-			return nil, fmt.Errorf("multiple matching %v objects found %s", gvr, strings.Join(names, ","))
-		}
+		return getTheObject(gvr, objects)
 	}
 
 	// TODO: convert name template to name
@@ -161,6 +129,26 @@ func Locate(f dynamicfactory.Factory, r discovery.ResourceMapper, ref *ObjectRef
 		return nil, err
 	}
 	return object, nil
+}
+
+func getTheObject(gvr schema.GroupVersionResource, objects []*unstructured.Unstructured) (*unstructured.Unstructured, error) {
+	switch len(objects) {
+	case 0:
+
+		return nil, apierrors.NewNotFound(gvr.GroupResource(), "")
+	case 1:
+		return objects[0], nil
+	default:
+		names := make([]string, 0, len(objects))
+		for _, obj := range objects {
+			name, err := cache.MetaNamespaceKeyFunc(obj)
+			if err != nil {
+				return nil, err
+			}
+			names = append(names, name)
+		}
+		return nil, fmt.Errorf("multiple matching %v objects found %s", gvr, strings.Join(names, ","))
+	}
 }
 
 func main() {
